@@ -40,6 +40,15 @@ abstract class Worker extends \Swarm\ASwarm
     protected $silent = false;
 
     /**
+     * Blocking worker or not
+     * 
+     * @var   boolean
+     * @see   ____var_see____
+     * @since 1.0.0
+     */
+    protected $blocking = false;
+
+    /**
      * Run worker
      *
      * @param mixed $arguments Arguments
@@ -71,6 +80,18 @@ abstract class Worker extends \Swarm\ASwarm
     }
 
     /**
+     * Get blocking 
+     * 
+     * @return boolean
+     * @see    ____func_see____
+     * @since  1.0.0
+     */
+    public function getBlocking()
+    {
+        return $this->blocking;
+    }
+
+    /**
      * Get process name 
      * 
      * @return string
@@ -89,7 +110,7 @@ abstract class Worker extends \Swarm\ASwarm
      * @see    ____func_see____
      * @since  1.0.0
      */
-    protected function isAlive()
+    public function isAlive()
     {
         return $this->manager->isAlive()
             && posix_kill($this->manager->getPid(), 0);

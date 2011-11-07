@@ -19,7 +19,7 @@ namespace Swarm\Worker;
  * @see   ____class_see____
  * @since 1.0.0
  */
-abstract class AMQP extends \Swarm\Worker
+abstract class AMQP extends \Swarm\Worker\Permanent
 {
     /**
      * Connection
@@ -40,13 +40,22 @@ abstract class AMQP extends \Swarm\Worker
     protected $channel;
 
     /**
-     * Worker arguments
+     * Blocking worker or not
      *
-     * @var   mixed
+     * @var   boolean
      * @see   ____var_see____
      * @since 1.0.0
      */
-    protected $arguments;
+    protected $blocking = true;
+
+    /**
+     * Ready state
+     * 
+     * @var   boolean
+     * @see   ____var_see____
+     * @since 1.0.0
+     */
+    protected $ready = false;
 
     /**
      * Get AMQP server settings 
@@ -67,27 +76,56 @@ abstract class AMQP extends \Swarm\Worker
     abstract protected function getHandlers();
 
     /**
-     * Run worker
+     * Check alive state
      *
-     * @param mixed $arguments Arguments
+     * @return boolean
+     * @see    ____func_see____
+     * @since  1.0.0
+     */
+    public function isAlive()
+    {
+        return parent::isAlive() && (!$this->ready || 0 < count($this->channel->callbacks));
+    }
+
+    /**
+     * Periodic work
      *
      * @return void
      * @see    ____func_see____
      * @since  1.0.0
      */
-    public function run($arguments = null)
+    protected function work()
     {
-        $this->arguments = $arguments;
+        $this->ready = true;
+    }
+
+    /**
+     * Prepare worker
+     *
+     * @return void
+     * @see    ____func_see____
+     * @since  1.0.0
+     */
+    protected function prepare()
+    {
+        parent::prepare();
 
         $this->initializeConnection();
 
         $this->setupChannel();
         $this->assignHandlers();
+    }
 
-        while ($this->isAlive() && count($this->channel->callbacks)) {
-            $this->channel->wait();
-            pcntl_signal_dispatch();
-        }
+    /**
+     * Wait
+     *
+     * @return void
+     * @see    ____func_see____
+     * @since  1.0.0
+     */
+    protected function wait()
+    {
+        $this->channel->wait();
     }
 
     /**
@@ -131,7 +169,7 @@ abstract class AMQP extends \Swarm\Worker
     {
         $config = $this->getAMQPServerSettings();
 
-        $this->connection = new \AMQPConnection(
+        $this->connection = @new \AMQPConnection(
             $config['host'],
             $config['port'],
             $config['user'],
@@ -150,10 +188,6 @@ abstract class AMQP extends \Swarm\Worker
      */
     protected function setupChannel()
     {
-        $this->channel->queue_declare($this->getQueue(), false, true, false, false);
-        $this->channel->exchange_declare($this->getExchange(), $this->getType(), false, true, false);
-        $this->channel->queue_bind($this->getQueue(), $this->getExchange());
-
     }
 
     /**
@@ -166,67 +200,32 @@ abstract class AMQP extends \Swarm\Worker
     protected function assignHandlers()
     {
         foreach ($this->getHandlers() as $handler) {
-            $this->assignHandler($handler);
+            foreach ($handler->getListeners() as $listener) {
+                $this->assignHandler($listener);
+            }
         }
     }
 
     /**
      * Assign channel handler 
      * 
-     * @param \Swarm\Worker\AMQP\Handler $handler Handler
+     * @param array $listener Listener
      *  
      * @return void
      * @see    ____func_see____
      * @since  1.0.0
      */
-    protected function assignHandler(\Swarm\Worker\AMQP\Handler $handler)
+    protected function assignHandler(array $listener)
     {
         $this->channel->basic_consume(
-            $this->getQueue(),
-            $handler::getTag(),
+            $listener['queue'],
+            $listener['tag'],
             false,
             false,
             false,
             false,
-            $handler::getCallback()
+            $listener['listener']
         );
-    }
-
-    /**
-     * Get channel queue 
-     * 
-     * @return string
-     * @see    ____func_see____
-     * @since  1.0.0
-     */
-    protected function getQueue()
-    {
-        return 'msgs';
-    }
-
-    /**
-     * Get channel exchange 
-     * 
-     * @return string
-     * @see    ____func_see____
-     * @since  1.0.0
-     */
-    protected function getExchange()
-    {
-
-        return 'swarm';
-    }
-
-    /**
-     * Get channel type 
-     * 
-     * @return string
-     * @see    ____func_see____
-     * @since  1.0.0
-     */
-    protected function getType()
-    {
-        return 'direct';
     }
 }
 

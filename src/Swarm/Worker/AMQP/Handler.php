@@ -19,56 +19,74 @@ namespace Swarm\Worker\AMQP;
  * @see   ____class_see____
  * @since 1.0.0
  */
-abstract class Handler extends \Swarm\Base\Singleton
+abstract class Handler extends \Swarm\ASwarm
 {
+    /**
+     * Listeners list
+     * 
+     * @var   array
+     * @see   ____var_see____
+     * @since 1.0.0
+     */
+    protected $listeners = array(
+        array('messages'),
+    );
+
     /**
      * Process message
      *
      * @param \AMQPMessage $message Message
+     * @param string       $queue   Queue name
+     * @param string       $tag     Consumer tag
      *
      * @return mixed
      * @see    ____func_see____
      * @since  1.0.0
      */
-    abstract public function handle(\AMQPMessage $message);
+    abstract public function handle(\AMQPMessage $message, $queue, $tag);
 
     /**
-     * Get consumer tag
-     *
-     * @return string
+     * Get listeners 
+     * 
+     * @return array
      * @see    ____func_see____
      * @since  1.0.0
      */
-    static public function getTag()
+    public function getListeners()
     {
-        return 'consumer';
+        $list = array();
+
+        $object = $this;
+
+        foreach ($this->listeners as $listener) {
+            $listener[1] = (isset($listener[1]) && $listener[1])
+                ? $listener[1]
+                : null;
+
+            $list[] = array(
+                'queue'    => $listener[0],
+                'tag'      => $listener[1],
+                'listener' => function (\AMQPMessage $message) use ($object, $listener) {
+                    return $object->handle($message, $listener[0], $listener[1]);
+                },
+            );
+        }
+
+        return $list;
     }
 
     /**
-     * Get callback
-     *
-     * @return string
+     * Send acknowledge
+     * 
+     * @param \AMQPMessage $msg Message
+     *  
+     * @return void
      * @see    ____func_see____
      * @since  1.0.0
      */
-    static public function getCallback()
+    protected function sendAck(\AMQPMessage $msg)
     {
-        return get_called_class() . '::handleStatic';
+        $msg->delivery_info['channel']->basic_ack($msg->delivery_info['delivery_tag']);
     }
-
-    /**
-     * Process message (callback)
-     *
-     * @param \AMQPMessage $message Message
-     *
-     * @return mixed
-     * @see    ____func_see____
-     * @since  1.0.0
-     */
-    static public function handleStatic(\AMQPMessage $message)
-    {
-        return static::getInstance()->handle($message);
-    }
-
 }
 

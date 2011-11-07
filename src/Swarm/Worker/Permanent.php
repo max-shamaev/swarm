@@ -54,11 +54,24 @@ abstract class Permanent extends \Swarm\Worker
     {
         $this->arguments = $arguments;
 
+        $this->prepare();
+
         while ($this->isAlive()) {
             $this->work();
             $this->wait();
             pcntl_signal_dispatch();
         }
+    }
+
+    /**
+     * Prepare worker
+     * 
+     * @return void
+     * @see    ____func_see____
+     * @since  1.0.0
+     */
+    protected function prepare()
+    {
     }
 
     /**

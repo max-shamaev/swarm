@@ -88,6 +88,24 @@ class Manager extends \Swarm\Base\Singleton
     }
 
     /**
+     * Check state 
+     * 
+     * @return void
+     * @see    ____func_see____
+     * @since  1.0.0
+     * @throws \Swarm\BlockException
+     */
+    public function checkState()
+    {
+        if ($this->managedWorker && $this->managedWorker->getBlocking()) {
+            pcntl_signal_dispatch();
+            if (!$this->isAlive()) {
+                throw new \Swarm\BlockException;
+            }
+        }
+    }
+
+    /**
      * Constructor
      * 
      * @return void
@@ -97,6 +115,7 @@ class Manager extends \Swarm\Base\Singleton
     protected function __construct()
     {
         declare(ticks = 1);
+        register_tick_function(array($this, 'checkState'));
 
         $this->pid = posix_getpid();
 
@@ -344,8 +363,14 @@ class Manager extends \Swarm\Base\Singleton
             $result = false;
 
         } else {
-            $this->runWorker($info);
+
+            try {
+                $this->runWorker($info);
+
+            } catch (\Swarm\BlockException $e) {
+            }
             $result = true;
+
         }
 
         return $result;
