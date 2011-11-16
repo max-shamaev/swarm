@@ -296,7 +296,8 @@ class Manager extends \Swarm\Base\Singleton
 
         $checked = array();
 
-        foreach ($this->planner->getWorkers() as $info) {
+        $workers = $this->planner->getWorkers();
+        foreach ($workers as $info) {
             $found = false;
             foreach ($this->workers as $index => $worker) {
                 if (!in_array($index, $checked) && $worker['class'] == $info['class']) {
